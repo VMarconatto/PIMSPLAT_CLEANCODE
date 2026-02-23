@@ -1,0 +1,272 @@
+x-consumer-env: &consumer-env
+  RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672
+  RABBITMQ_EXCHANGE: telemetry.exchange
+  RABBITMQ_EXCHANGE_TYPE: topic
+  RABBITMQ_QUEUE: telemetry.queue
+  RABBITMQ_ROUTING_KEY: telemetry.#
+  RABBITMQ_SITES: Utilidades,Recepção,Estocagem de Leite Cru,Expedição de Creme,Pasteurização,Alsafe
+  RABBITMQ_DLQ: telemetry.dlq
+  RABBITMQ_RETRY_QUEUE: telemetry.retry
+  RABBITMQ_RETRY_TTL_MS: 10000
+  RABBITMQ_PREFETCH: 50
+  RABBITMQ_HEARTBEAT: 30
+  RABBITMQ_VHOST: /
+  RABBITMQ_PUBLISH_CONFIRM: "true"
+  RABBITMQ_TLS_ENABLED: "false"
+  RABBIT_ROUTING_KEY_PREFIX: telemetry
+  ALERTS_QUEUE: alerts.queue
+  ALERTS_RETRY_QUEUE: alerts.retry
+  ALERTS_DLQ: alerts.dlq
+  DB_TYPE: postgres
+  DB_SCHEMA: public
+  DB_USER: postgres
+  DB_PASS: postgres
+  JWT_SECRET: my_secret
+  JWT_EXPIRES_IN: 86400
+  NODE_ENV: production
+
+x-consumer-base: &consumer-base
+  build:
+    context: ./backend
+    dockerfile: Dockerfile
+  restart: unless-stopped
+  depends_on:
+    rabbitmq:
+      condition: service_started
+
+services:
+  # ──────────────────────────────────────────────────────────────
+  # PostgreSQL — um container por area de telemetria
+  # ──────────────────────────────────────────────────────────────
+
+  postgres-pasteurizacao:
+    image: postgres:16
+    container_name: pasteurizacao
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: pasteurizacao
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres_pasteurizacao_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d pasteurizacao"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  postgres-utilidades:
+    image: postgres:16
+    container_name: utilidades
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_DB: utilidades
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres_utilidades_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d utilidades"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  postgres-recepcao:
+    image: postgres:16
+    container_name: recepcao
+    ports:
+      - "5434:5432"
+    environment:
+      POSTGRES_DB: recepcao
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres_recepcao_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d recepcao"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  postgres-estocagem-de-leite-cru:
+    image: postgres:16
+    container_name: estocagem_de_leite_cru
+    ports:
+      - "5435:5432"
+    environment:
+      POSTGRES_DB: estocagem_de_leite_cru
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres_estocagem_de_leite_cru_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d estocagem_de_leite_cru"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  postgres-expedicao-de-creme:
+    image: postgres:16
+    container_name: expedicao_de_creme
+    ports:
+      - "5436:5432"
+    environment:
+      POSTGRES_DB: expedicao_de_creme
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres_expedicao_de_creme_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d expedicao_de_creme"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  postgres-alsafe:
+    image: postgres:16
+    container_name: alsafe
+    ports:
+      - "5437:5432"
+    environment:
+      POSTGRES_DB: alsafe
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres_alsafe_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d alsafe"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  # ──────────────────────────────────────────────────────────────
+  # RabbitMQ — broker compartilhado
+  # ──────────────────────────────────────────────────────────────
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    ports:
+      - "5672:5672"     # AMQP (aplicação)
+      - "15672:15672"   # Painel web (management)
+    environment:
+      RABBITMQ_DEFAULT_USER: guest
+      RABBITMQ_DEFAULT_PASS: guest
+      # RABBITMQ_DEFAULT_VHOST: /
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    restart: unless-stopped
+
+  consumer-pasteurizacao:
+    <<: *consumer-base
+    container_name: consumer_pasteurizacao
+    depends_on:
+      rabbitmq:
+        condition: service_started
+      postgres-pasteurizacao:
+        condition: service_healthy
+    environment:
+      <<: *consumer-env
+      CONSUMER_AREA_SLUG: pasteurizacao
+      DB_HOST: postgres-pasteurizacao
+      DB_PORT: 5432
+      DB_NAME: pasteurizacao
+
+  consumer-utilidades:
+    <<: *consumer-base
+    container_name: consumer_utilidades
+    depends_on:
+      rabbitmq:
+        condition: service_started
+      postgres-utilidades:
+        condition: service_healthy
+    environment:
+      <<: *consumer-env
+      CONSUMER_AREA_SLUG: utilidades
+      DB_HOST: postgres-utilidades
+      DB_PORT: 5432
+      DB_NAME: utilidades
+
+  consumer-recepcao:
+    <<: *consumer-base
+    container_name: consumer_recepcao
+    depends_on:
+      rabbitmq:
+        condition: service_started
+      postgres-recepcao:
+        condition: service_healthy
+    environment:
+      <<: *consumer-env
+      CONSUMER_AREA_SLUG: recepcao
+      DB_HOST: postgres-recepcao
+      DB_PORT: 5432
+      DB_NAME: recepcao
+
+  consumer-estocagem-de-leite-cru:
+    <<: *consumer-base
+    container_name: consumer_estocagem_de_leite_cru
+    depends_on:
+      rabbitmq:
+        condition: service_started
+      postgres-estocagem-de-leite-cru:
+        condition: service_healthy
+    environment:
+      <<: *consumer-env
+      CONSUMER_AREA_SLUG: estocagem_de_leite_cru
+      DB_HOST: postgres-estocagem-de-leite-cru
+      DB_PORT: 5432
+      DB_NAME: estocagem_de_leite_cru
+
+  consumer-expedicao-de-creme:
+    <<: *consumer-base
+    container_name: consumer_expedicao_de_creme
+    depends_on:
+      rabbitmq:
+        condition: service_started
+      postgres-expedicao-de-creme:
+        condition: service_healthy
+    environment:
+      <<: *consumer-env
+      CONSUMER_AREA_SLUG: expedicao_de_creme
+      DB_HOST: postgres-expedicao-de-creme
+      DB_PORT: 5432
+      DB_NAME: expedicao_de_creme
+
+  consumer-alsafe:
+    <<: *consumer-base
+    container_name: consumer_alsafe
+    depends_on:
+      rabbitmq:
+        condition: service_started
+      postgres-alsafe:
+        condition: service_healthy
+    environment:
+      <<: *consumer-env
+      CONSUMER_AREA_SLUG: alsafe
+      DB_HOST: postgres-alsafe
+      DB_PORT: 5432
+      DB_NAME: alsafe
+
+volumes:
+  rabbitmq_data:
+    driver: local
+  postgres_pasteurizacao_data:
+    driver: local
+  postgres_utilidades_data:
+    driver: local
+  postgres_recepcao_data:
+    driver: local
+  postgres_estocagem_de_leite_cru_data:
+    driver: local
+  postgres_expedicao_de_creme_data:
+    driver: local
+  postgres_alsafe_data:
+    driver: local
