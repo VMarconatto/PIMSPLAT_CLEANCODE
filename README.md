@@ -45,9 +45,9 @@ Um **PIMS** é o intermediador entre o **chão de fábrica** (PLCs, sensores, at
 │   CHÃO DE FÁBRICA          PIMS (este projeto)           SISTEMAS SUPERIORES│
 │                                                                             │
 │  ┌──────────────┐     ┌──────────────────────────┐     ┌─────────────────┐  │
-│  │  PLC / SCADA │────▶│  OPC-UA → RabbitMQ       │────▶│  MES / ERP      │  │
+│  │  PLC / SCADA │────▶│  OPC-UA → RabbitMQ       │────▶│  MES / ERP     │  │
 │  │  Sensores    │     │  Coleta · Transporte     │     │  Relatórios     │  │
-│  │  Atuadores   │◀────│  Persistência · Alarmes  │◀─── │  BI / Analytics │  │
+│  │  Atuadores   │◀────│  Persistência · Alarmes  │◀─── │  BI / Analytics│  │
 │  └──────────────┘     └──────────────────────────┘     └─────────────────┘  │
 │                                                                             │
 └─────────────────────────────────────────────────────────────────────────────┘
