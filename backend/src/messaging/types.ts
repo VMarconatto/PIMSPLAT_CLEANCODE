@@ -6,7 +6,7 @@
  * - produtores (ex: coletor OPC UA)
  * - consumidores (ex: gravação no Postgres, alertas, analytics)
  *
- * ✅ Onde entra OPC UA aqui?
+ *   Onde entra OPC UA aqui?
  * - Aqui é onde você define como o dado OPC UA vira uma estrutura serializável.
  * - `tags` normalmente vira um objeto { tagName: value } vindo do OPC UA.
  */
